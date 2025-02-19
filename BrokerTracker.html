@@ -1,0 +1,111 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Broker Tracker</title><style>*{box-sizing:border-box;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}body{max-width:1200px;margin:0 auto;padding:20px;background-color:#f5f5f5}.app-header{text-align:center;color:#2c3e50;margin-bottom:40px}.client-form{background:#fff;padding:20px;border-radius:10px;box-shadow:0 2px 5px rgba(0,0,0,.1);margin-bottom:30px;display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.form-group{display:flex;flex-direction:column}input,select,textarea{padding:8px;border:1px solid #ddd;border-radius:4px;margin-top:5px}button{background-color:#3498db;color:#fff;border:none;padding:10px 20px;border-radius:5px;cursor:pointer;grid-column:span 3}button:hover{background-color:#2980b9}.client-list{background:#fff;border-radius:10px;box-shadow:0 2px 5px rgba(0,0,0,.1);overflow-x:auto;margin-bottom:20px}table{width:100%;border-collapse:collapse}td,th{padding:12px;text-align:left;border-bottom:1px solid #ddd}th{background-color:#f8f9fa}tr:hover{background-color:#f9f9f9}.status-tag{display:inline-block;padding:4px 8px;border-radius:15px;font-size:.8em}.status-new{background:#e8f4ff;color:#3498db}.status-viewing{background:#fff3cd;color:#856404}.status-options{background:#d4edda;color:#155724}.status-followup{background:#f8d7da;color:#721c24}.actions button{padding:5px 10px;margin:2px;font-size:.8em;grid-column:span 1}.data-actions{text-align:center;margin-top:20px}.data-actions button{background-color:#27ae60;margin:0 10px}.data-actions button:hover{background-color:#219a52}@media (max-width:768px){.client-form{grid-template-columns:1fr}button{grid-column:span 1}}</style></head><body><div class="app-header"><h1>Broker Tracker 🏠</h1></div><form class="client-form" id="clientForm"><div class="form-group"><label>Full Name *</label><input type="text" id="clientName" required></div><div class="form-group"><label>Contact Info *</label><input type="text" id="contactInfo" required></div><div class="form-group"><label>Budget ($)</label><input type="number" id="budget"></div><div class="form-group"><label>Target Areas</label><input type="text" id="areas"></div><div class="form-group"><label>Stage *</label><select id="stage" required><option value="New Lead">New Lead</option><option value="Sending Options">Sending Options</option><option value="Scheduling Viewings">Scheduling Viewings</option><option value="Negotiating">Negotiating</option><option value="Waiting to Call">Waiting to Call</option></select></div><div class="form-group"><label>Best Time to Call</label><input type="time" id="bestTime"></div><div class="form-group"><label>Country</label><input type="text" id="country" list="countries"><datalist id="countries"><option value="USA"><option value="Canada"><option value="UK"><option value="Germany"><option value="France"><option value="Spain"></datalist></div><div class="form-group"><label>Special Notes</label><textarea id="notes" rows="2"></textarea></div><button type="submit">Add Client</button></form><div class="client-list"><table id="clientTable"><thead><tr><th>Name</th><th>Contact</th><th>Budget</th><th>Areas</th><th>Stage</th><th>Best Time</th><th>Country</th><th>Notes</th><th>Actions</th></tr></thead><tbody id="clientList"></tbody></table></div><div class="data-actions"><button onclick="exportData()">Save List</button><button onclick="importData()">Import List</button></div><script>let clients = [];
+        let editingIndex = -1;
+
+        // File handling functions
+        function exportData() {
+            const data = JSON.stringify(clients, null, 2);
+            const blob = new Blob([data], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'broker-tracker-data.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'application/json';
+            
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = (event) => {
+                    try {
+                        clients = JSON.parse(event.target.result);
+                        renderClients();
+                    } catch (error) {
+                        alert('Error reading file: Invalid format');
+                    }
+                };
+                
+                reader.readAsText(file);
+            };
+            
+            input.click();
+        }
+
+        function renderClients() {
+            const clientList = document.getElementById('clientList');
+            clientList.innerHTML = '';
+            clients.forEach((client, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${client.name}</td>
+                    <td>${client.contact}</td>
+                    <td>${client.budget ? '$'+client.budget : ''}</td>
+                    <td>${client.areas}</td>
+                    <td><span class="status-tag status-${client.stage.replace(/\s+/g, '-').toLowerCase()}">${client.stage}</span></td>
+                    <td>${client.bestTime || ''}</td>
+                    <td>${client.country}</td>
+                    <td>${client.notes}</td>
+                    <td class="actions">
+                        <button onclick="editClient(${index})" style="background-color: #ffc107;">Edit</button>
+                        <button onclick="deleteClient(${index})" style="background-color: #dc3545;">Delete</button>
+                    </td>
+                `;
+                clientList.appendChild(row);
+            });
+        }
+
+        function editClient(index) {
+            const client = clients[index];
+            document.getElementById('clientName').value = client.name;
+            document.getElementById('contactInfo').value = client.contact;
+            document.getElementById('budget').value = client.budget;
+            document.getElementById('areas').value = client.areas;
+            document.getElementById('stage').value = client.stage;
+            document.getElementById('bestTime').value = client.bestTime;
+            document.getElementById('country').value = client.country;
+            document.getElementById('notes').value = client.notes;
+            editingIndex = index;
+        }
+
+        function deleteClient(index) {
+            if (confirm('Are you sure you want to delete this client?')) {
+                clients.splice(index, 1);
+                renderClients();
+            }
+        }
+
+        document.getElementById('clientForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const client = {
+                name: document.getElementById('clientName').value,
+                contact: document.getElementById('contactInfo').value,
+                budget: document.getElementById('budget').value,
+                areas: document.getElementById('areas').value,
+                stage: document.getElementById('stage').value,
+                bestTime: document.getElementById('bestTime').value,
+                country: document.getElementById('country').value,
+                notes: document.getElementById('notes').value
+            };
+
+            if (editingIndex > -1) {
+                clients[editingIndex] = client;
+                editingIndex = -1;
+            } else {
+                clients.push(client);
+            }
+
+            renderClients();
+            e.target.reset();
+        });
+
+        // Initial render
+        renderClients();</script></body></html>
